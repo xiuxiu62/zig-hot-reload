@@ -3,26 +3,35 @@ const build_options = @import("build_options");
 
 handle: ?std.DynLib = null,
 run_fn: ?*const fn (halt_flag: *std.atomic.Value(bool)) void = null,
-reload_flag: *const std.atomic.Value(bool),
+reload_flag: *std.atomic.Value(bool),
 
 const Self = @This();
 
-pub fn init(reload_flag: *const std.atomic.Value(bool)) !Self {
+pub fn init(reload_flag: *std.atomic.Value(bool)) !Self {
     var self: Self = .{
-        .handle = std.DynLib.open(build_options.lib_path) orelse null,
+        .handle = std.DynLib.open(build_options.lib_path) catch null,
         .reload_flag = reload_flag,
     };
 
     errdefer self.deinit();
 
-    try self.load_run_function();
+    self.load_run_fn();
     return self;
 }
 
-pub fn deinit(self: Self) void {
-    if (self.handle) |h| {
-        h.close();
-    }
+pub fn deinit(self: *Self) void {
+    self.handle.?.close();
+
+    // const strong_handle = self.handle.? orelse return;
+    // var handle = &strong_handle;
+    // handle.close();
+
+    // if (self.handle) |*h| h.close();
+
+    // self.handle.?.close();
+    // self.handle.?
+    // const temp = &(self.handle.?)
+    // close();
 }
 
 pub fn run(self: *Self, halt_flag: *std.atomic.Value(bool)) !void {
@@ -44,7 +53,7 @@ pub fn recompile(self: *Self) !void {
 
     const term = comp_proc.spawnAndWait() orelse return;
     if (term.Exited == 0) {
-        if (self.handle) |h| h.close();
+        // self.handle.?.*.close();
         self.handle = try std.DynLib.open(build_options.game_lib_path);
         self.load_run_function();
         self.reload_flag.store(false, .acquire);
@@ -52,6 +61,6 @@ pub fn recompile(self: *Self) !void {
 }
 
 fn load_run_fn(self: *Self) void {
-    const RunFn = fn (halt_flag: *const std.atomic.Value(bool)) void;
-    self.run_fn = self.handle.lookup(*const RunFn, "run") orelse null;
+    const RunFn = fn (halt_flag: *std.atomic.Value(bool)) void;
+    self.run_fn = self.handle.?.lookup(*const RunFn, "run");
 }

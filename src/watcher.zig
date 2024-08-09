@@ -19,7 +19,7 @@ pub fn init(allocator: std.mem.Allocator, path: []const u8) !Self {
     };
 }
 
-pub fn deinit(self: Self) void {
+pub fn deinit(self: *Self) void {
     // NOTE: not sure if freeing entries is necessary
     var it = self.files.iterator();
     while (it.next()) |entry|
@@ -33,15 +33,15 @@ pub fn deinit(self: Self) void {
 pub fn watch(
     allocator: std.mem.Allocator,
     path: []const u8,
-    reload_flag: *const std.atomic.Value(bool),
-    halt_flag: *const std.atomic.Value(bool),
+    reload_flag: *std.atomic.Value(bool),
+    halt_flag: *std.atomic.Value(bool),
 ) void {
-    const self = Self.init(allocator, path) catch return;
+    var self = Self.init(allocator, path) catch return;
     defer self.deinit();
 
     while (!halt_flag.load(.acquire)) {
-        if (self.changed() orelse false)
-            reload_flag.store(true, .acquire);
+        if (self.changed() catch false)
+            reload_flag.store(true, .release);
 
         std.time.sleep(std.time.ns_per_s);
     }
