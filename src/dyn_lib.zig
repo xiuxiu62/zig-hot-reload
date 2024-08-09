@@ -24,10 +24,11 @@ pub fn deinit(self: *Self) void {
 
 pub fn run(self: *Self, halt_flag: *std.atomic.Value(bool)) void {
     self.run_fn(halt_flag);
+
+    std.debug.print("lib done!", .{});
 }
 
 pub fn recompile(self: *Self, allocator: std.mem.Allocator) !void {
-    std.debug.print("Recompiling\n", .{});
     self.handle.close();
 
     var comp_proc = std.process.Child.init(&.{ "zig", "build", "lib-only", "--summary", "all" }, allocator);

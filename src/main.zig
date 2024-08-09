@@ -34,6 +34,4 @@ pub fn main() !void {
         // TODO: wait on condition variable
         std.time.sleep(std.time.ns_per_s);
     }
-
-    std.debug.print("b\n", .{});
 }
