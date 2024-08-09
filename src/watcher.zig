@@ -21,9 +21,9 @@ pub fn init(allocator: std.mem.Allocator, path: []const u8) !Self {
 
 pub fn deinit(self: *Self) void {
     // NOTE: not sure if freeing entries is necessary
-    var it = self.files.iterator();
-    while (it.next()) |entry|
-        self.allocator.free(entry.key_ptr.*);
+    // var it = self.files.iterator();
+    // while (it.next()) |entry|
+    //     self.allocator.free(entry.key_ptr.*);
 
     self.files.deinit();
     self.dir_stack.deinit();
@@ -39,10 +39,13 @@ pub fn watch(
     // defer self.deinit();
 
     while (!halt_flag.load(.acquire)) {
-        if (self.changed() catch false)
+        std.debug.print("checking\n", .{});
+        if (self.changed() catch false) {
+            std.debug.print("File changed\n", .{});
             reload_flag.store(true, .release);
+        }
 
-        std.time.sleep(std.time.ns_per_s);
+        std.time.sleep(std.time.ns_per_s * 2);
     }
 }
 
@@ -68,10 +71,13 @@ fn changed(self: *Self) !bool {
                     const stat = try dir.statFile(entry.name);
                     const last_modified = stat.mtime;
 
-                    const previous_modified = try self.files.getOrPut(try self.allocator.dupe(u8, full_path));
+                    const previous_modified = try self.files.getOrPut(full_path);
                     if (previous_modified.found_existing and last_modified != previous_modified.value_ptr.*) {
                         previous_modified.value_ptr.* = last_modified;
+
                         has_changed = true;
+                    } else {
+                        previous_modified.value_ptr.* = last_modified;
                     }
                 },
                 .directory => {
