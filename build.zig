@@ -14,12 +14,18 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(lib);
 
+    const lib_install = b.addInstallArtifact(lib, .{});
+
+    const lib_step = b.step("lib-only", "Build only the shared library");
+    lib_step.dependOn(&lib_install.step);
+    // lib_step.dependOn(&lib.step);
+
     const lib_install_path = b.getInstallPath(.bin, lib.out_filename);
 
     const build_options = b.addOptions();
     build_options.addOption([]const u8, "lib_path", lib_install_path);
 
-    const lib_only = b.option(bool, "bool-only", "Build only the shared library") orelse false;
+    const lib_only = b.option(bool, "lib-only", "Build only the shared library") orelse false;
 
     if (!lib_only) {
         const exe = b.addExecutable(.{
@@ -39,6 +45,8 @@ pub fn build(b: *std.Build) void {
         const run_step = b.step("run", "Run the app");
         run_step.dependOn(&run_cmd.step);
     }
+
+    b.getInstallStep().dependOn(&lib_install.step);
 
     // if (lib_only) {
     //     b.installArtifact(lib);
@@ -64,6 +72,4 @@ pub fn build(b: *std.Build) void {
     //     run_step.dependOn(&run_cmd.step);
     // }
 
-    const lib_step = b.step("lib-only", "Build only the shared library");
-    lib_step.dependOn(&lib.step);
 }

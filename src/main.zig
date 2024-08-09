@@ -9,13 +9,6 @@ pub fn main() !void {
 
     var reload_flag = std.atomic.Value(bool).init(false);
     var halt_flag = std.atomic.Value(bool).init(false);
-    // var mutex = std.Thread.Mutex{};
-    // var cond = std.Thread.Condition{};
-
-    // allocator: std.mem.Allocator,
-    // path: []const u8,
-    // reload_flag: *const std.atomic.Value(bool),
-    // halt_flag: *const std.atomic.Value(bool),
 
     var lib = try Library.init(&reload_flag);
     defer lib.deinit();
@@ -31,7 +24,7 @@ pub fn main() !void {
         lib_thread.join();
     }
 
-    while (halt_flag.load(.acquire)) {
+    while (!halt_flag.load(.acquire)) {
         if (reload_flag.load(.acquire)) {
             lib_thread.join();
             try lib.recompile(allocator);
@@ -41,4 +34,6 @@ pub fn main() !void {
         // TODO: wait on condition variable
         std.time.sleep(std.time.ns_per_s);
     }
+
+    std.debug.print("b\n", .{});
 }

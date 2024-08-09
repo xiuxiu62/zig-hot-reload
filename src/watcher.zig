@@ -39,9 +39,7 @@ pub fn watch(
     // defer self.deinit();
 
     while (!halt_flag.load(.acquire)) {
-        std.debug.print("checking\n", .{});
         if (self.changed() catch false) {
-            std.debug.print("File changed\n", .{});
             reload_flag.store(true, .release);
         }
 
