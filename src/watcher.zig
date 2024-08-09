@@ -31,13 +31,12 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn watch(
-    allocator: std.mem.Allocator,
-    path: []const u8,
+    self: *Self,
     reload_flag: *std.atomic.Value(bool),
     halt_flag: *std.atomic.Value(bool),
 ) void {
-    var self = Self.init(allocator, path) catch return;
-    defer self.deinit();
+    // var self = Self.init(allocator, path) catch return;
+    // defer self.deinit();
 
     while (!halt_flag.load(.acquire)) {
         if (self.changed() catch false)
@@ -50,12 +49,14 @@ pub fn watch(
 fn changed(self: *Self) !bool {
     var has_changed = false;
 
-    try self.dir_stack.append(self.root_path);
+    const absolute_root_path = try std.fs.realpathAlloc(self.allocator, self.root_path);
+    try self.dir_stack.append(absolute_root_path);
 
     while (self.dir_stack.items.len > 0) {
         const current_dir = self.dir_stack.pop();
         var dir = try std.fs.openDirAbsolute(current_dir, .{ .iterate = true });
         defer dir.close();
+        defer self.allocator.free(current_dir);
 
         var it = dir.iterate();
         while (try it.next()) |entry| {
@@ -73,7 +74,10 @@ fn changed(self: *Self) !bool {
                         has_changed = true;
                     }
                 },
-                .directory => try self.dir_stack.append(try self.allocator.dupe(u8, full_path)),
+                .directory => {
+                    const full_current_path = try std.fs.realpathAlloc(self.allocator, full_path);
+                    try self.dir_stack.append(full_current_path);
+                },
                 else => {},
             }
         }

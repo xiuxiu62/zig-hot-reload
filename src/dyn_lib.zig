@@ -1,5 +1,5 @@
 const std = @import("std");
-const build_options = @import("build_options");
+const options = @import("options");
 
 handle: std.DynLib,
 run_fn: *const fn (halt_flag: *std.atomic.Value(bool)) void = undefined,
@@ -9,7 +9,7 @@ const Self = @This();
 
 pub fn init(reload_flag: *std.atomic.Value(bool)) !Self {
     var self: Self = .{
-        .handle = try std.DynLib.open(build_options.lib_path),
+        .handle = try std.DynLib.open(options.lib_path),
         .reload_flag = reload_flag,
     };
     errdefer self.deinit();
@@ -26,22 +26,17 @@ pub fn run(self: *Self, halt_flag: *std.atomic.Value(bool)) void {
     self.run_fn(halt_flag);
 }
 
-pub fn recompile(self: *Self) !void {
-    const comp_proc = std.process.Child.init(.{
-        "zig",
-        "build",
-        "-Dhot-reload=true",
-        "lib-only",
-    }, self.allocator);
+pub fn recompile(self: *Self, allocator: std.mem.Allocator) !void {
+    var comp_proc = std.process.Child.init(&.{ "zig", "build", "lib-only" }, allocator);
     comp_proc.stdout_behavior = .Inherit;
     comp_proc.stderr_behavior = .Inherit;
 
-    const term = comp_proc.spawnAndWait() orelse return;
+    const term = try comp_proc.spawnAndWait();
     if (term.Exited == 0) {
         self.handle.close();
-        self.handle = try std.DynLib.open(build_options.game_lib_path);
-        self.load_run_function();
-        self.reload_flag.store(false, .acquire);
+        self.handle = try std.DynLib.open(options.lib_path);
+        try self.load_run_fn();
+        self.reload_flag.store(false, .release);
     }
 }
 

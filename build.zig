@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(lib);
 
-    const lib_install_path = b.getInstallPath(.lib, lib.out_filename);
+    const lib_install_path = b.getInstallPath(.bin, lib.out_filename);
 
     const build_options = b.addOptions();
     build_options.addOption([]const u8, "lib_path", lib_install_path);
@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
 
-        exe.root_module.addImport("build_options", build_options.createModule());
+        exe.root_module.addImport("options", build_options.createModule());
 
         b.installArtifact(exe);
 

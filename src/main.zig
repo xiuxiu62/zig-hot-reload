@@ -9,27 +9,36 @@ pub fn main() !void {
 
     var reload_flag = std.atomic.Value(bool).init(false);
     var halt_flag = std.atomic.Value(bool).init(false);
+    // var mutex = std.Thread.Mutex{};
+    // var cond = std.Thread.Condition{};
 
     // allocator: std.mem.Allocator,
     // path: []const u8,
     // reload_flag: *const std.atomic.Value(bool),
     // halt_flag: *const std.atomic.Value(bool),
 
-    const watcher_thread = try std.Thread.spawn(.{ .allocator = allocator }, FileWatcher.watch, .{ allocator, "src/lib", &reload_flag, &halt_flag });
-
     var lib = try Library.init(&reload_flag);
     defer lib.deinit();
-    const lib_thread = try std.Thread.spawn(
-        .{ .allocator = allocator },
-        Library.run,
-        .{ &lib, &reload_flag }, // here we pass the reload flag since a reload is a halt to the run procedure
-    );
 
-    while (!halt_flag.load(.acquire)) {
+    var watcher = try FileWatcher.init(allocator, "./src/lib");
+    defer watcher.deinit();
+
+    // here we pass the reload flag since a reload is a halt to the run procedure
+    var lib_thread = try std.Thread.spawn(.{ .allocator = allocator }, Library.run, .{ &lib, &reload_flag });
+    const watcher_thread = try std.Thread.spawn(.{ .allocator = allocator }, FileWatcher.watch, .{ &watcher, &reload_flag, &halt_flag });
+    defer {
+        watcher_thread.join();
+        lib_thread.join();
+    }
+
+    while (halt_flag.load(.acquire)) {
+        if (reload_flag.load(.acquire)) {
+            lib_thread.join();
+            try lib.recompile(allocator);
+            lib_thread = try std.Thread.spawn(.{ .allocator = allocator }, Library.run, .{ &lib, &reload_flag });
+        }
+
         // TODO: wait on condition variable
         std.time.sleep(std.time.ns_per_s);
     }
-
-    watcher_thread.join();
-    lib_thread.join();
 }
